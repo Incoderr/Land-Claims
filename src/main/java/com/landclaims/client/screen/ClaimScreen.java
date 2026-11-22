@@ -104,6 +104,10 @@ public final class ClaimScreen extends Screen {
         mapY1 = height - FOOTER - 1;
         createAtlases();
 
+        addRenderableWidget(Button.builder(Component.translatable("landclaims.team.title"),
+                        b -> minecraft.gui.setScreen(new TeamScreen(this)))
+                .bounds(7, 6, 80, 18).build());
+
         int x = 7;
         int y = HEADER + 8;
         addRenderableWidget(Button.builder(Component.literal("+"), b -> zoomAround(1, centerScreenX(), centerScreenY()))

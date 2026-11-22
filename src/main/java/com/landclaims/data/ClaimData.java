@@ -181,7 +181,7 @@ public final class ClaimData extends SavedData {
 
     /** Creates a team with the player as owner. The caller checks the name and that the player has no team. */
     public Team createTeam(String name, UUID owner) {
-        Team team = new Team(UUID.randomUUID(), name, owner, List.of(owner));
+        Team team = new Team(UUID.randomUUID(), name, owner, List.of(owner), Team.NO_COLOR);
         teams.put(team.id(), team);
         teamOfPlayer.put(owner, team.id());
         invites.remove(owner);
@@ -201,6 +201,12 @@ public final class ClaimData extends SavedData {
 
     public void invite(Team team, UUID player) {
         invites.computeIfAbsent(player, p -> new HashSet<>()).add(team.id());
+        syncPending = true; // not saved, but the invited player's team screen must update
+    }
+
+    /** Asks for a sync to clients without saving, e.g. when someone logs in or out. */
+    public void requestSync() {
+        syncPending = true;
     }
 
     public boolean hasInvite(Team team, UUID player) {
@@ -228,6 +234,28 @@ public final class ClaimData extends SavedData {
         }
         setDirty();
         return newOwner;
+    }
+
+    /** The caller checks that the name is valid and free. */
+    public void rename(Team team, String name) {
+        team.setName(name);
+        setDirty();
+    }
+
+    public void setColor(Team team, int rgb) {
+        team.setColor(rgb);
+        setDirty();
+    }
+
+    /** The new owner must already be a member. */
+    public void transferOwnership(Team team, UUID newOwner) {
+        team.setOwner(newOwner);
+        setDirty();
+    }
+
+    /** Teams that have invited this player. */
+    public List<Team> invitesFor(UUID player) {
+        return invites.getOrDefault(player, Set.of()).stream().map(teams::get).filter(java.util.Objects::nonNull).toList();
     }
 
     /** Deletes the team and all its claims. Returns the removed claims so the caller can release chunk loading. */

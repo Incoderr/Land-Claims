@@ -9,6 +9,7 @@ import com.landclaims.ClaimService;
 import com.landclaims.ForceLoadManager;
 import com.landclaims.LandClaims;
 import com.landclaims.LandClaimsConfig;
+import com.landclaims.TeamService;
 import com.landclaims.data.ClaimData;
 import com.landclaims.data.Team;
 
@@ -30,7 +31,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
  */
 @EventBusSubscriber(modid = LandClaims.MODID)
 public final class ClaimNetwork {
-    /** Own team is always drawn in this green, other teams get a color derived from their id. */
+    /** Teams that haven't chosen a color: own team is drawn green, others get a color derived from their id. */
     public static final int OWN_COLOR = 0x3CC864;
 
     private ClaimNetwork() {
@@ -39,9 +40,33 @@ public final class ClaimNetwork {
     @SubscribeEvent
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1").optional();
-        // The client handler for the sync payload is registered in LandClaimsClient.
+        // Client handlers for the sync payloads are registered in ClientEvents.
         registrar.playToClient(ClaimSyncPayload.TYPE, ClaimSyncPayload.STREAM_CODEC);
+        registrar.playToClient(TeamSyncPayload.TYPE, TeamSyncPayload.STREAM_CODEC);
         registrar.playToServer(ClaimActionPayload.TYPE, ClaimActionPayload.STREAM_CODEC, ClaimNetwork::handleAction);
+        registrar.playToServer(TeamActionPayload.TYPE, TeamActionPayload.STREAM_CODEC, ClaimNetwork::handleTeamAction);
+    }
+
+    private static void handleTeamAction(TeamActionPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        switch (payload.action()) {
+            case CREATE -> TeamService.create(player, payload.text());
+            case JOIN -> TeamService.join(player, payload.text());
+            case RENAME -> TeamService.rename(player, payload.text());
+            case LEAVE -> TeamService.leave(player);
+            case DISBAND -> TeamService.disband(player);
+            case KICK -> TeamService.kick(player, payload.target());
+            case TRANSFER -> TeamService.transfer(player, payload.target());
+            case COLOR -> TeamService.setColor(player, payload.value());
+            case INVITE -> {
+                ServerPlayer target = player.level().getServer().getPlayerList().getPlayer(payload.target());
+                if (target != null) {
+                    TeamService.invite(player, target);
+                }
+            }
+        }
     }
 
     private static void handleAction(ClaimActionPayload payload, IPayloadContext context) {
@@ -64,6 +89,50 @@ public final class ClaimNetwork {
         return Color.HSBtoRGB(hue, 0.65f, 0.95f) & 0xFFFFFF;
     }
 
+    /** The color a team is drawn in for a given viewer. */
+    public static int displayColor(Team team, boolean own) {
+        if (team.color() != Team.NO_COLOR) {
+            return team.color();
+        }
+        return own ? OWN_COLOR : teamColor(team.id());
+    }
+
+    public static void sendTeamTo(ServerPlayer player) {
+        if (!player.connection.hasChannel(TeamSyncPayload.TYPE)) {
+            return;
+        }
+        MinecraftServer server = player.level().getServer();
+        ClaimData data = ClaimData.get(server);
+        Team team = data.teamOf(player.getUUID());
+        List<TeamSyncPayload.Player> members = new ArrayList<>();
+        List<TeamSyncPayload.Player> candidates = new ArrayList<>();
+        List<String> invites = new ArrayList<>();
+        if (team != null) {
+            members.add(player(server, data, team.owner()));
+            for (UUID member : team.members()) {
+                if (!team.isOwner(member)) {
+                    members.add(player(server, data, member));
+                }
+            }
+            for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                if (data.teamOf(online.getUUID()) == null) {
+                    candidates.add(new TeamSyncPayload.Player(online.getUUID(), online.getGameProfile().name(), true));
+                }
+            }
+        } else {
+            data.invitesFor(player.getUUID()).forEach(t -> invites.add(t.name()));
+        }
+        PacketDistributor.sendToPlayer(player, new TeamSyncPayload(
+                team == null ? "" : team.name(),
+                team == null ? Team.NO_COLOR : team.color(),
+                team == null ? player.getUUID() : team.owner(),
+                members, invites, candidates));
+    }
+
+    private static TeamSyncPayload.Player player(MinecraftServer server, ClaimData data, UUID id) {
+        return new TeamSyncPayload.Player(id, data.nameOf(id), server.getPlayerList().getPlayer(id) != null);
+    }
+
     public static void sendTo(ServerPlayer player) {
         if (!player.connection.hasChannel(ClaimSyncPayload.TYPE)) {
             return;
@@ -80,7 +149,7 @@ public final class ClaimNetwork {
             }
             boolean own = team == ownTeam;
             entries.add(new ClaimSyncPayload.Entry(e.getLongKey(), team.name(),
-                    own ? OWN_COLOR : teamColor(team.id()), own, data.isForced(dimension, e.getLongKey())));
+                    displayColor(team, own), own, data.isForced(dimension, e.getLongKey())));
         }
         PacketDistributor.sendToPlayer(player, new ClaimSyncPayload(dimension, entries,
                 ownTeam == null ? "" : ownTeam.name(),
@@ -95,14 +164,25 @@ public final class ClaimNetwork {
         MinecraftServer server = event.getServer();
         if (ClaimData.get(server).consumeSyncPending()) {
             ForceLoadManager.markDirty();
-            server.getPlayerList().getPlayers().forEach(ClaimNetwork::sendTo);
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                sendTo(player);
+                sendTeamTo(player);
+            }
         }
     }
 
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            sendTo(player);
+            // Everyone's team screen shows who is online, so resync all on the next tick.
+            ClaimData.get(player.level().getServer()).requestSync();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            ClaimData.get(player.level().getServer()).requestSync();
         }
     }
 

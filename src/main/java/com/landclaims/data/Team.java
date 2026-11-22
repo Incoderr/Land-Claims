@@ -14,24 +14,43 @@ import net.minecraft.core.UUIDUtil;
 
 /** A group of players that shares claims. The owner is always also a member. */
 public final class Team {
+    /** Color not chosen: the map derives one from the team id. */
+    public static final int NO_COLOR = -1;
+
     public static final Codec<Team> CODEC = RecordCodecBuilder.create(i -> i.group(
             UUIDUtil.CODEC.fieldOf("id").forGetter(Team::id),
             Codec.STRING.fieldOf("name").forGetter(Team::name),
             UUIDUtil.CODEC.fieldOf("owner").forGetter(Team::owner),
-            UUIDUtil.CODEC.listOf().fieldOf("members").forGetter(t -> new ArrayList<>(t.members))
+            UUIDUtil.CODEC.listOf().fieldOf("members").forGetter(t -> new ArrayList<>(t.members)),
+            Codec.INT.optionalFieldOf("color", NO_COLOR).forGetter(Team::color)
     ).apply(i, Team::new));
 
     private final UUID id;
-    private final String name;
+    private String name;
     private UUID owner;
     private final Set<UUID> members;
+    private int color;
 
-    Team(UUID id, String name, UUID owner, List<UUID> members) {
+    Team(UUID id, String name, UUID owner, List<UUID> members, int color) {
         this.id = id;
         this.name = name;
         this.owner = owner;
         this.members = new LinkedHashSet<>(members);
         this.members.add(owner);
+        this.color = color;
+    }
+
+    /** RGB chosen by the owner, or {@link #NO_COLOR}. */
+    public int color() {
+        return color;
+    }
+
+    void setColor(int color) {
+        this.color = color;
+    }
+
+    void setName(String name) {
+        this.name = name;
     }
 
     public UUID id() {
