@@ -38,7 +38,7 @@
 | | Version |
 |---|---|
 | Minecraft | 26.3 |
-| NeoForge | 26.3.0.115 or newer |
+| NeoForge | 26.3.0.100 or newer |
 | Java | 25 |
 | JourneyMap | optional, 26.3-6.0.11+ |
 | Xaero's World Map | optional, 1.47+ |
