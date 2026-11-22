@@ -2,10 +2,11 @@ name: Release
 
 # Run `python tools/release.py <version>` (or push a tag like v0.2.0-26.3 yourself). This workflow then
 # builds and tests that version, writes the changelog from the commits since the previous release,
-# publishes a GitHub release and, once set up, uploads the version to Modrinth and syncs the project page.
+# publishes a GitHub release and, once set up, uploads the version to Modrinth.
+# The Modrinth project description is edited by hand on Modrinth.
 #
 # Modrinth setup (once): repository secret MODRINTH_TOKEN (a Modrinth personal access token with
-# "Create versions" and "Write projects" scopes) and repository variable MODRINTH_PROJECT (project id or slug).
+# "Create versions" and "Read projects" scopes) and repository variable MODRINTH_PROJECT (project id or slug).
 # Optional repository variable RELEASE_CHANNEL: release, beta (default) or alpha.
 on:
   push:
@@ -118,27 +119,3 @@ jobs:
           dependencies: |
             journeymap(optional){modrinth:journeymap}
             xaeroworldmap(optional){modrinth:xaeros-world-map}
-
-      - name: Sync Modrinth description from README
-        if: env.MODRINTH_TOKEN != '' && env.MODRINTH_PROJECT != ''
-        run: |
-          python3 - <<'EOF'
-          import json, os, re, urllib.request
-          text = open("README.md", encoding="utf-8").read()
-          # Drop the HTML header (relative images don't load on Modrinth) and the developer-only section.
-          text = text[text.index("## "):]
-          text = re.sub(r"## Development.*?(?=## License)", "", text, flags=re.S)
-          text += "\n\nSource and issues: https://github.com/Incoderr/Land-Claims\n"
-          request = urllib.request.Request(
-              f"https://api.modrinth.com/v2/project/{os.environ['MODRINTH_PROJECT']}",
-              data=json.dumps({"body": text}).encode(),
-              method="PATCH",
-              headers={
-                  "Authorization": os.environ["MODRINTH_TOKEN"],
-                  "Content-Type": "application/json",
-                  "User-Agent": "Incoderr/Land-Claims release workflow",
-              },
-          )
-          with urllib.request.urlopen(request) as response:
-              print("Modrinth description updated:", response.status)
-          EOF
