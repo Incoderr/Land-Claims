@@ -119,6 +119,20 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+
+    // JUnit tests run with the game bootstrapped, so tests can use registries and codecs.
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+    }
 }
 
 // Sets up a dependency configuration called 'localRuntime'.
@@ -143,6 +157,10 @@ var extractJourneymapApi = tasks.register('extractJourneymapApi', Sync) {
 }
 
 dependencies {
+    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
     // JourneyMap is optional: we compile against its API and run it in dev, but players don't need it.
     // The 26.3 API is not on JourneyMap's maven yet; it ships inside the mod jar (see extractJourneymapApi).
     journeymapMod "maven.modrinth:journeymap:${journeymap_version}"
