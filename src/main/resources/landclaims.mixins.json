@@ -4,7 +4,8 @@
   "package": "com.landclaims.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "FlowingFluidMixin"
+    "FlowingFluidMixin",
+    "thaumcraft.HungryNodeMixin"
   ],
   "client": [
     "xaero.WorldMapSessionMixin"

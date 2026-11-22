@@ -138,6 +138,10 @@ Team names are 2 to 16 characters: Latin letters, digits, `_` and `-`. The comma
 | `protectFromExplosions` | `true` | Explosions don't break blocks in claims |
 | `forceLoadOnlyWhileOnline` | `false` | Keep a team's chunks loaded only while one of its members is online |
 
+## Compatibility
+
+- **Thaumcraft 4 Reforged:** a hungry aura node does not break blocks in claims. It still pulls in and consumes entities there, as on old servers with protection plugins.
+
 ## Not protected yet
 
 - Dispensers pouring fluids or placing blocks across a claim border.

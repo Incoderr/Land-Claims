@@ -165,6 +165,11 @@ public final class ClaimProtection {
         return !Objects.equals(data.ownerOf(level.dimension(), fromChunk), data.ownerOf(level.dimension(), toChunk));
     }
 
+    /** True if the block is in a claimed chunk. Used to stop block breaking that has no player behind it. */
+    public static boolean isClaimed(ServerLevel level, BlockPos pos) {
+        return ClaimData.get(level.getServer()).ownerOf(level.dimension(), ChunkPos.containing(pos)) != null;
+    }
+
     /** Fluids may leave a claim, but not flow into land owned by someone else. */
     public static boolean fluidMayFlow(ServerLevel level, BlockPos from, BlockPos to) {
         ChunkPos fromChunk = ChunkPos.containing(from);
