@@ -16,7 +16,6 @@ permissions:
 
 env:
   MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-  MODRINTH_PROJECT: ${{ vars.MODRINTH_PROJECT }}
 
 jobs:
   release:
@@ -59,6 +58,10 @@ jobs:
             echo "neo=$neo"
             echo "channel=${{ vars.RELEASE_CHANNEL || 'beta' }}"
           } >> "$GITHUB_OUTPUT"
+          # Accept a slug, an id or a full project link: keep only the last part of the path.
+          project="${{ vars.MODRINTH_PROJECT }}"
+          project="${project%/}"
+          echo "MODRINTH_PROJECT=${project##*/}" >> "$GITHUB_ENV"
 
       - name: Write changelog
         run: |
