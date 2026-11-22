@@ -1,7 +1,12 @@
 name: Release
 
-# Push a tag like v0.2.0-26.3 (mod version, then the Minecraft version) to build that version,
-# run the tests and publish a GitHub release with the jar.
+# Run `python tools/release.py <version>` (or push a tag like v0.2.0-26.3 yourself). This workflow then
+# builds and tests that version, writes the changelog from the commits since the previous release,
+# publishes a GitHub release and, once set up, uploads the version to Modrinth and syncs the project page.
+#
+# Modrinth setup (once): repository secret MODRINTH_TOKEN (a Modrinth personal access token with
+# "Create versions" and "Write projects" scopes) and repository variable MODRINTH_PROJECT (project id or slug).
+# Optional repository variable RELEASE_CHANNEL: release, beta (default) or alpha.
 on:
   push:
     tags: ['v*']
@@ -9,12 +14,18 @@ on:
 permissions:
   contents: write
 
+env:
+  MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+  MODRINTH_PROJECT: ${{ vars.MODRINTH_PROJECT }}
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup JDK 25
         uses: actions/setup-java@v4
@@ -46,7 +57,27 @@ jobs:
             echo "mod=$mod"
             echo "game=$game"
             echo "neo=$neo"
+            echo "channel=${{ vars.RELEASE_CHANNEL || 'beta' }}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Write changelog
+        run: |
+          previous="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
+          range="${previous:+$previous..}HEAD"
+          git log --no-merges --pretty='- %s' "$range" \
+            | grep -v -E '^- (Bump version|Release [0-9])' > changes.md || true
+          if [ ! -s changes.md ]; then
+            echo "- Maintenance release" > changes.md
+          fi
+          {
+            echo "**Minecraft** ${{ steps.version.outputs.game }} · **NeoForge** ${{ steps.version.outputs.neo }} or newer · **Java** 25"
+            echo
+            echo "Optional: JourneyMap or Xaero's World Map for claim highlights on those maps."
+            echo
+            echo "### Changes"
+            cat changes.md
+          } > release-notes.md
+          cat release-notes.md
 
       - name: Build and test
         run: ./gradlew build --console=plain -Pmod_version=${{ steps.version.outputs.mod }}
@@ -55,10 +86,47 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Land Claims ${{ steps.version.outputs.mod }} for Minecraft ${{ steps.version.outputs.game }}
-          body: |
-            **Minecraft** ${{ steps.version.outputs.game }} · **NeoForge** ${{ steps.version.outputs.neo }} or newer · **Java** 25
-
-            Optional: JourneyMap or Xaero's World Map for claim highlights on those maps.
+          body_path: release-notes.md
           files: build/libs/landclaims-${{ steps.version.outputs.full }}.jar
-          generate_release_notes: true
           fail_on_unmatched_files: true
+
+      - name: Publish to Modrinth
+        if: env.MODRINTH_TOKEN != '' && env.MODRINTH_PROJECT != ''
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ env.MODRINTH_PROJECT }}
+          modrinth-token: ${{ env.MODRINTH_TOKEN }}
+          files: build/libs/landclaims-${{ steps.version.outputs.full }}.jar
+          name: Land Claims ${{ steps.version.outputs.mod }} for Minecraft ${{ steps.version.outputs.game }}
+          version: ${{ steps.version.outputs.full }}
+          version-type: ${{ steps.version.outputs.channel }}
+          changelog-file: changes.md
+          loaders: neoforge
+          game-versions: ${{ steps.version.outputs.game }}
+          dependencies: |
+            journeymap(optional){modrinth:journeymap}
+            xaeroworldmap(optional){modrinth:xaeros-world-map}
+
+      - name: Sync Modrinth description from README
+        if: env.MODRINTH_TOKEN != '' && env.MODRINTH_PROJECT != ''
+        run: |
+          python3 - <<'EOF'
+          import json, os, re, urllib.request
+          text = open("README.md", encoding="utf-8").read()
+          # Drop the HTML header (relative images don't load on Modrinth) and the developer-only section.
+          text = text[text.index("## "):]
+          text = re.sub(r"## Development.*?(?=## License)", "", text, flags=re.S)
+          text += "\n\nSource and issues: https://github.com/Incoderr/Land-Claims\n"
+          request = urllib.request.Request(
+              f"https://api.modrinth.com/v2/project/{os.environ['MODRINTH_PROJECT']}",
+              data=json.dumps({"body": text}).encode(),
+              method="PATCH",
+              headers={
+                  "Authorization": os.environ["MODRINTH_TOKEN"],
+                  "Content-Type": "application/json",
+                  "User-Agent": "Incoderr/Land-Claims release workflow",
+              },
+          )
+          with urllib.request.urlopen(request) as response:
+              print("Modrinth description updated:", response.status)
+          EOF

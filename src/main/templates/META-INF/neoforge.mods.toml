@@ -80,6 +80,21 @@ config="${mod_id}.mixins.json"
     ordering="NONE"
     side="BOTH"
 
+# Optional map integrations: claims are drawn on these maps when they are installed.
+[[dependencies.${mod_id}]]
+    modId="journeymap"
+    type="optional"
+    versionRange="*"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="xaeroworldmap"
+    type="optional"
+    versionRange="*"
+    ordering="NONE"
+    side="CLIENT"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
