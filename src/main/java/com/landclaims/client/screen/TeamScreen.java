@@ -16,6 +16,10 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.PlayerFaceExtractor;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -39,8 +43,6 @@ public final class TeamScreen extends Screen {
     private static final int BAR = 0xE60D0F12;
     private static final int TEXT = 0xFFE8E8E8;
     private static final int TEXT_DIM = 0xFF9AA0A8;
-    private static final int ONLINE = 0xFF5BE37D;
-    private static final int OFFLINE = 0xFF5A5F66;
     private static final int GOLD = 0xFFFFC94D;
     private static final long STATUS_MS = 6000;
     private static final long CONFIRM_MS = 4000;
@@ -341,10 +343,10 @@ public final class TeamScreen extends Screen {
             TeamSyncPayload.Player member = members.get(i + memberScroll);
             int ry = listY + i * ROW;
             boolean isOwner = member.id().equals(state.owner());
-            g.fill(leftX + 2, ry + 6, leftX + 8, ry + 12, member.online() ? ONLINE : OFFLINE);
-            g.text(font, member.name(), leftX + 13, ry + 5, member.online() ? TEXT : TEXT_DIM, false);
+            drawHead(g, member, leftX, ry + 1);
+            g.text(font, member.name(), leftX + 22, ry + 5, member.online() ? TEXT : TEXT_DIM, false);
             if (isOwner) {
-                g.text(font, "★", leftX + 15 + font.width(member.name()), ry + 5, GOLD, false);
+                g.text(font, "★", leftX + 24 + font.width(member.name()), ry + 5, GOLD, false);
             }
         }
         drawScrollHint(g, leftX, members.size(), memberScroll);
@@ -354,8 +356,9 @@ public final class TeamScreen extends Screen {
             g.text(font, Component.translatable("landclaims.team.nobody_online"), rightX, listY + 5, TEXT_DIM, false);
         }
         for (int i = 0; i < Math.min(listRows, candidates.size() - candidateScroll); i++) {
-            g.fill(rightX + 2, listY + i * ROW + 6, rightX + 8, listY + i * ROW + 12, ONLINE);
-            g.text(font, candidates.get(i + candidateScroll).name(), rightX + 13, listY + i * ROW + 5, TEXT, false);
+            TeamSyncPayload.Player candidate = candidates.get(i + candidateScroll);
+            drawHead(g, candidate, rightX, listY + i * ROW + 1);
+            g.text(font, candidate.name(), rightX + 22, listY + i * ROW + 5, TEXT, false);
         }
         drawScrollHint(g, rightX, candidates.size(), candidateScroll);
 
@@ -364,10 +367,30 @@ public final class TeamScreen extends Screen {
         }
     }
 
+    /**
+     * The player's face, from the skin the server sent for online players; offline players get their default skin
+     * and a darkened face, so online status reads at a glance.
+     */
+    private void drawHead(GuiGraphicsExtractor g, TeamSyncPayload.Player player, int x, int y) {
+        PlayerSkin skin = null;
+        if (minecraft.getConnection() != null) {
+            PlayerInfo info = minecraft.getConnection().getPlayerInfo(player.id());
+            if (info != null) {
+                skin = info.getSkin();
+            }
+        }
+        if (skin == null) {
+            skin = DefaultPlayerSkin.get(player.id());
+        }
+        int size = 16;
+        g.fill(x - 1, y - 1, x + size + 1, y + size + 1, player.online() ? 0xFF000000 : 0xFF2A2F36);
+        PlayerFaceExtractor.extractRenderState(g, skin, x, y, size, player.online() ? 0xFFFFFFFF : 0xFF606060);
+    }
+
     private void drawScrollHint(GuiGraphicsExtractor g, int x, int total, int scroll) {
         int hidden = total - scroll - listRows;
         if (hidden > 0) {
-            g.text(font, Component.translatable("landclaims.team.more", hidden), x + 13, listY + listRows * ROW,
+            g.text(font, Component.translatable("landclaims.team.more", hidden), x + 22, listY + listRows * ROW,
                     TEXT_DIM, false);
         }
     }
