@@ -1,6 +1,7 @@
 name: Release
 
-# Push a tag like v0.2.0 to build that version, run the tests and publish a GitHub release with the jar.
+# Push a tag like v0.2.0-26.3 (mod version, then the Minecraft version) to build that version,
+# run the tests and publish a GitHub release with the jar.
 on:
   push:
     tags: ['v*']
@@ -24,17 +25,40 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Version from tag
+      - name: Read versions from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          full="${GITHUB_REF_NAME#v}"
+          mod="${full%-*}"
+          game="${full##*-}"
+          project_game="$(grep '^minecraft_version=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          neo="$(grep '^neo_version=' gradle.properties | cut -d= -f2 | tr -d '\r')"
+          if [ "$full" = "$mod" ]; then
+            echo "::error::Tag must look like v<mod version>-<Minecraft version>, e.g. v0.2.0-$project_game"
+            exit 1
+          fi
+          if [ "$game" != "$project_game" ]; then
+            echo "::error::Tag is for Minecraft $game, but this commit builds for Minecraft $project_game"
+            exit 1
+          fi
+          {
+            echo "full=$full"
+            echo "mod=$mod"
+            echo "game=$game"
+            echo "neo=$neo"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and test
-        run: ./gradlew build --console=plain -Pmod_version=${{ steps.version.outputs.version }}
+        run: ./gradlew build --console=plain -Pmod_version=${{ steps.version.outputs.mod }}
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          name: Land Claims ${{ steps.version.outputs.version }}
-          files: build/libs/landclaims-${{ steps.version.outputs.version }}.jar
+          name: Land Claims ${{ steps.version.outputs.mod }} for Minecraft ${{ steps.version.outputs.game }}
+          body: |
+            **Minecraft** ${{ steps.version.outputs.game }} · **NeoForge** ${{ steps.version.outputs.neo }} or newer · **Java** 25
+
+            Optional: JourneyMap or Xaero's World Map for claim highlights on those maps.
+          files: build/libs/landclaims-${{ steps.version.outputs.full }}.jar
           generate_release_notes: true
           fail_on_unmatched_files: true
