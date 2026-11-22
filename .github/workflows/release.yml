@@ -63,6 +63,15 @@ jobs:
           project="${project%/}"
           echo "MODRINTH_PROJECT=${project##*/}" >> "$GITHUB_ENV"
 
+      # Uploading a version needs the project id, not the slug. Ask Modrinth (with the token, so drafts work too).
+      - name: Resolve Modrinth project id
+        if: env.MODRINTH_TOKEN != '' && env.MODRINTH_PROJECT != ''
+        run: |
+          id="$(curl -fsS -H "Authorization: $MODRINTH_TOKEN" -H "User-Agent: Incoderr/Land-Claims release workflow" \
+            "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT" | python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])')"
+          echo "Modrinth project $MODRINTH_PROJECT has id $id"
+          echo "MODRINTH_PROJECT=$id" >> "$GITHUB_ENV"
+
       - name: Write changelog
         run: |
           previous="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
