@@ -22,6 +22,8 @@ public final class ClientClaims {
     private static String ownTeam = "";
     private static int ownClaimCount;
     private static int claimLimit;
+    private static int ownForcedCount;
+    private static int forceLimit;
     /** Increases on every update, so map integrations can tell their cached data is stale. */
     private static int version;
     private static final List<Runnable> listeners = new CopyOnWriteArrayList<>();
@@ -58,6 +60,14 @@ public final class ClientClaims {
         return claimLimit;
     }
 
+    public static int ownForcedCount() {
+        return ownForcedCount;
+    }
+
+    public static int forceLimit() {
+        return forceLimit;
+    }
+
     public static int version() {
         return version;
     }
@@ -75,6 +85,8 @@ public final class ClientClaims {
         ownTeam = payload.ownTeam();
         ownClaimCount = payload.ownClaimCount();
         claimLimit = payload.claimLimit();
+        ownForcedCount = payload.ownForcedCount();
+        forceLimit = payload.forceLimit();
         version++;
         listeners.forEach(Runnable::run);
     }
@@ -85,6 +97,8 @@ public final class ClientClaims {
         ownTeam = "";
         ownClaimCount = 0;
         claimLimit = 0;
+        ownForcedCount = 0;
+        forceLimit = 0;
         version++;
         listeners.forEach(Runnable::run);
     }

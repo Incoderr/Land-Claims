@@ -67,7 +67,7 @@ public final class JourneyMapIntegration implements IClientPlugin {
         // The fullscreen map shows the dimension the player is in, which is also the one we have claims for.
         ResourceKey<Level> dimension = mc.level.dimension();
         List<ChunkPos> chunks = ClaimService.square(ChunkPos.containing(pos), radius);
-        ClientPacketDistributor.sendToServer(new ClaimActionPayload(claim, dimension, chunks));
+        ClientPacketDistributor.sendToServer(new ClaimActionPayload(claim ? ClaimActionPayload.Action.CLAIM : ClaimActionPayload.Action.UNCLAIM, dimension, chunks));
     }
 
     private void redraw() {

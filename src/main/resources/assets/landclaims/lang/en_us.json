@@ -9,7 +9,7 @@
   "landclaims.screen.unavailable": "This server does not have Land Claims",
   "landclaims.screen.no_team": "You have no team yet: your first claim creates one",
   "landclaims.screen.team": "Team %s: %s/%s claims",
-  "landclaims.screen.help": "LMB claim, RMB unclaim (drag for an area) · Wheel zoom · WASD or middle mouse move · Space to me",
+  "landclaims.screen.help": "LMB claim, RMB unclaim · Shift+LMB/RMB force-load on/off · drag for an area · Wheel zoom · WASD or middle mouse move · Space to me",
   "landclaims.screen.chunk": "Chunk [%s, %s]",
   "landclaims.screen.free": "Free",
   "landclaims.screen.owner": "Team %s",
@@ -24,7 +24,6 @@
   "landclaims.configuration.maxForceLoadedPerTeam": "Max force-loaded chunks per team",
   "landclaims.configuration.protectFromExplosions": "Protect claims from explosions",
   "landclaims.configuration.forceLoadOnlyWhileOnline": "Force-load only while a member is online",
-
   "landclaims.msg.no_team": "You are not in a team",
   "landclaims.msg.claimed": "Chunk [%s, %s] claimed for team %s (%s/%s)",
   "landclaims.msg.already_yours": "This chunk already belongs to your team",
@@ -43,7 +42,6 @@
   "landclaims.msg.bypass_on": "Claim bypass on: you can build in any claim",
   "landclaims.msg.bypass_off": "Claim bypass off",
   "landclaims.msg.admin_unclaimed": "Removed the claim of team %s",
-
   "landclaims.msg.team.created": "Team %s created",
   "landclaims.msg.team.auto_created": "Created your team %s. Rename it by disbanding and using /team create",
   "landclaims.msg.team.name_invalid": "Team name must be 2-16 characters: letters, digits, _ or -",
@@ -66,5 +64,16 @@
   "landclaims.msg.team.disbanded": "Team %s disbanded, %s claims removed",
   "landclaims.msg.team.info": "Team %s. Owner: %s. Members: %s. Claims: %s/%s",
   "landclaims.msg.team.list_header": "Teams: %s",
-  "landclaims.msg.team.list_entry": "%s: %s members, %s claims"
+  "landclaims.msg.team.list_entry": "%s: %s members, %s claims",
+  "landclaims.msg.forced": "Chunk [%s, %s] now stays loaded (%s/%s)",
+  "landclaims.msg.unforced": "Chunk [%s, %s] no longer stays loaded",
+  "landclaims.msg.force_needs_claim": "Only chunks claimed by your team can be force-loaded",
+  "landclaims.msg.already_forced": "This chunk already stays loaded",
+  "landclaims.msg.not_forced": "This chunk is not force-loaded",
+  "landclaims.msg.forced_area": "Force loading on for %s chunks, skipped %s",
+  "landclaims.msg.unforced_area": "Force loading off for %s chunks, skipped %s",
+  "landclaims.msg.force_limit": "Your team reached the force-load limit (%s)",
+  "landclaims.screen.forced": "Stays loaded",
+  "landclaims.screen.force_hint": "Shift+click: keep loaded, Shift+right-click: stop",
+  "landclaims.screen.force_status": "loaded %s/%s"
 }

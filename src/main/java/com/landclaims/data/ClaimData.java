@@ -17,6 +17,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -29,11 +31,12 @@ import net.minecraft.world.level.saveddata.SavedDataType;
 
 /** All teams and claims of the server. Stored once per world, in the server-wide data storage. */
 public final class ClaimData extends SavedData {
-    private record ClaimEntry(ResourceKey<Level> dimension, long chunk, UUID team) {
+    private record ClaimEntry(ResourceKey<Level> dimension, long chunk, UUID team, boolean forced) {
         static final Codec<ClaimEntry> CODEC = RecordCodecBuilder.create(i -> i.group(
                 ResourceKey.codec(Registries.DIMENSION).fieldOf("dimension").forGetter(ClaimEntry::dimension),
                 Codec.LONG.fieldOf("chunk").forGetter(ClaimEntry::chunk),
-                UUIDUtil.CODEC.fieldOf("team").forGetter(ClaimEntry::team)
+                UUIDUtil.CODEC.fieldOf("team").forGetter(ClaimEntry::team),
+                Codec.BOOL.optionalFieldOf("forced", false).forGetter(ClaimEntry::forced)
         ).apply(i, ClaimEntry::new));
     }
 
@@ -57,6 +60,8 @@ public final class ClaimData extends SavedData {
     private final Map<UUID, UUID> teamOfPlayer = new HashMap<>();
     private final Map<ResourceKey<Level>, Long2ObjectMap<UUID>> claims = new HashMap<>();
     private final Map<UUID, String> names = new HashMap<>();
+    /** Claimed chunks the owning team keeps loaded. Always a subset of {@link #claims}. */
+    private final Map<ResourceKey<Level>, LongSet> forced = new HashMap<>();
 
     // Not saved: invites expire on restart, bypass is an admin toggle per session.
     private final Map<UUID, Set<UUID>> invites = new HashMap<>();
@@ -97,6 +102,9 @@ public final class ClaimData extends SavedData {
         for (ClaimEntry entry : claims) {
             if (this.teams.containsKey(entry.team())) {
                 claimsIn(entry.dimension()).put(entry.chunk(), entry.team());
+                if (entry.forced()) {
+                    forcedIn(entry.dimension()).add(entry.chunk());
+                }
             }
         }
         names.forEach(entry -> this.names.put(entry.player(), entry.name()));
@@ -109,7 +117,8 @@ public final class ClaimData extends SavedData {
     private List<ClaimEntry> claimEntries() {
         List<ClaimEntry> result = new ArrayList<>();
         claims.forEach((dimension, map) -> map.long2ObjectEntrySet()
-                .forEach(e -> result.add(new ClaimEntry(dimension, e.getLongKey(), e.getValue()))));
+                .forEach(e -> result.add(new ClaimEntry(dimension, e.getLongKey(), e.getValue(),
+                        isForced(dimension, e.getLongKey())))));
         return result;
     }
 
@@ -119,6 +128,10 @@ public final class ClaimData extends SavedData {
 
     private Long2ObjectMap<UUID> claimsIn(ResourceKey<Level> dimension) {
         return claims.computeIfAbsent(dimension, d -> new Long2ObjectOpenHashMap<>());
+    }
+
+    private LongSet forcedIn(ResourceKey<Level> dimension) {
+        return forced.computeIfAbsent(dimension, d -> new LongOpenHashSet());
     }
 
     // ---- Player names (for offline members in /team info) ----
@@ -247,6 +260,7 @@ public final class ClaimData extends SavedData {
     public void unclaim(ResourceKey<Level> dimension, ChunkPos chunk) {
         Long2ObjectMap<UUID> map = claims.get(dimension);
         if (map != null && map.remove(chunk.pack()) != null) {
+            forcedIn(dimension).remove(chunk.pack());
             setDirty();
         }
     }
@@ -275,11 +289,60 @@ public final class ClaimData extends SavedData {
 
     public List<ClaimPos> unclaimAll(Team team) {
         List<ClaimPos> removed = claimsOf(team);
-        removed.forEach(pos -> claims.get(pos.dimension()).remove(pos.chunk().pack()));
+        removed.forEach(pos -> {
+            claims.get(pos.dimension()).remove(pos.chunk().pack());
+            forcedIn(pos.dimension()).remove(pos.chunk().pack());
+        });
         if (!removed.isEmpty()) {
             setDirty();
         }
         return removed;
+    }
+
+    // ---- Force loading ----
+
+    public boolean isForced(ResourceKey<Level> dimension, long chunk) {
+        LongSet set = forced.get(dimension);
+        return set != null && set.contains(chunk);
+    }
+
+    /** Marks a claimed chunk as kept loaded or not. The caller checks ownership and limits. */
+    public void setForced(ResourceKey<Level> dimension, ChunkPos chunk, boolean value) {
+        boolean changed = value ? forcedIn(dimension).add(chunk.pack()) : forcedIn(dimension).remove(chunk.pack());
+        if (changed) {
+            setDirty();
+        }
+    }
+
+    public int forcedCount(Team team) {
+        int count = 0;
+        for (var e : forced.entrySet()) {
+            Long2ObjectMap<UUID> owners = claims.get(e.getKey());
+            for (long chunk : e.getValue()) {
+                if (owners != null && team.id().equals(owners.get(chunk))) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /** Every force-loaded chunk with the team that owns it. */
+    public void forEachForced(ForcedConsumer consumer) {
+        forced.forEach((dimension, set) -> {
+            Long2ObjectMap<UUID> owners = claims.get(dimension);
+            for (long chunk : set) {
+                Team team = owners == null ? null : teams.get(owners.get(chunk));
+                if (team != null) {
+                    consumer.accept(dimension, chunk, team);
+                }
+            }
+        });
+    }
+
+    @FunctionalInterface
+    public interface ForcedConsumer {
+        void accept(ResourceKey<Level> dimension, long chunk, Team team);
     }
 
     // ---- Access ----

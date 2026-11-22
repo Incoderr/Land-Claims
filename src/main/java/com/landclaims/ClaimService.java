@@ -91,6 +91,52 @@ public final class ClaimService {
         return claimed;
     }
 
+    /** Turns force loading on or off for chunks the player's team has claimed. */
+    public static int setForceLoad(ServerPlayer player, ResourceKey<Level> dimension, List<ChunkPos> chunks, boolean enable) {
+        ClaimData data = ClaimData.get(player.level().getServer());
+        Team team = data.teamOf(player.getUUID());
+        int limit = LandClaimsConfig.MAX_FORCE_LOADED_PER_TEAM.getAsInt();
+        int changed = 0;
+        int skipped = 0;
+        boolean hitLimit = false;
+        for (ChunkPos chunk : chunks) {
+            Team owner = data.teamAt(dimension, chunk);
+            if (team == null || owner != team) {
+                skipped++;
+                continue;
+            }
+            if (data.isForced(dimension, chunk.pack()) == enable) {
+                continue;
+            }
+            if (enable && data.forcedCount(team) >= limit) {
+                skipped++;
+                hitLimit = true;
+                continue;
+            }
+            data.setForced(dimension, chunk, enable);
+            changed++;
+        }
+
+        if (chunks.size() == 1) {
+            ChunkPos chunk = chunks.getFirst();
+            if (changed == 1) {
+                player.sendSystemMessage(enable
+                        ? Msg.ok("forced", chunk.x(), chunk.z(), data.forcedCount(team), limit)
+                        : Msg.ok("unforced", chunk.x(), chunk.z()));
+            } else if (skipped == 1 && !hitLimit) {
+                player.sendSystemMessage(Msg.error("force_needs_claim"));
+            } else if (!hitLimit) {
+                player.sendSystemMessage(Msg.info(enable ? "already_forced" : "not_forced"));
+            }
+        } else {
+            player.sendSystemMessage(Msg.ok(enable ? "forced_area" : "unforced_area", changed, skipped));
+        }
+        if (hitLimit) {
+            player.sendSystemMessage(Msg.error("force_limit", limit));
+        }
+        return changed;
+    }
+
     public static int unclaim(ServerPlayer player, ResourceKey<Level> dimension, List<ChunkPos> chunks) {
         ClaimData data = ClaimData.get(player.level().getServer());
         int removed = 0;

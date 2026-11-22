@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.landclaims.ClaimService;
+import com.landclaims.ForceLoadManager;
 import com.landclaims.LandClaims;
 import com.landclaims.LandClaimsConfig;
 import com.landclaims.data.ClaimData;
@@ -50,10 +51,11 @@ public final class ClaimNetwork {
         if (player.level().getServer().getLevel(payload.dimension()) == null || payload.chunks().isEmpty()) {
             return;
         }
-        if (payload.claim()) {
-            ClaimService.claim(player, payload.dimension(), payload.chunks());
-        } else {
-            ClaimService.unclaim(player, payload.dimension(), payload.chunks());
+        switch (payload.action()) {
+            case CLAIM -> ClaimService.claim(player, payload.dimension(), payload.chunks());
+            case UNCLAIM -> ClaimService.unclaim(player, payload.dimension(), payload.chunks());
+            case FORCE_LOAD -> ClaimService.setForceLoad(player, payload.dimension(), payload.chunks(), true);
+            case STOP_FORCE_LOAD -> ClaimService.setForceLoad(player, payload.dimension(), payload.chunks(), false);
         }
     }
 
@@ -78,18 +80,21 @@ public final class ClaimNetwork {
             }
             boolean own = team == ownTeam;
             entries.add(new ClaimSyncPayload.Entry(e.getLongKey(), team.name(),
-                    own ? OWN_COLOR : teamColor(team.id()), own));
+                    own ? OWN_COLOR : teamColor(team.id()), own, data.isForced(dimension, e.getLongKey())));
         }
         PacketDistributor.sendToPlayer(player, new ClaimSyncPayload(dimension, entries,
                 ownTeam == null ? "" : ownTeam.name(),
                 ownTeam == null ? 0 : data.claimCount(ownTeam),
-                LandClaimsConfig.MAX_CLAIMS_PER_TEAM.getAsInt()));
+                LandClaimsConfig.MAX_CLAIMS_PER_TEAM.getAsInt(),
+                ownTeam == null ? 0 : data.forcedCount(ownTeam),
+                LandClaimsConfig.MAX_FORCE_LOADED_PER_TEAM.getAsInt()));
     }
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         if (ClaimData.get(server).consumeSyncPending()) {
+            ForceLoadManager.markDirty();
             server.getPlayerList().getPlayers().forEach(ClaimNetwork::sendTo);
         }
     }

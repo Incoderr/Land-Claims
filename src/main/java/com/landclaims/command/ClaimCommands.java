@@ -32,6 +32,9 @@ public final class ClaimCommands {
                         .then(Commands.argument("radius", IntegerArgumentType.integer(1, MAX_AREA_RADIUS))
                                 .executes(ClaimCommands::claimArea)))
                 .then(Commands.literal("info").executes(ClaimCommands::info))
+                .then(Commands.literal("forceload")
+                        .executes(ctx -> forceLoad(ctx, true))
+                        .then(Commands.literal("off").executes(ctx -> forceLoad(ctx, false))))
                 .then(Commands.literal("list").executes(ClaimCommands::list))
                 .then(Commands.literal("admin")
                         .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
@@ -56,6 +59,11 @@ public final class ClaimCommands {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         int radius = IntegerArgumentType.getInteger(ctx, "radius");
         return ClaimService.claim(player, player.level().dimension(), ClaimService.square(player.chunkPosition(), radius));
+    }
+
+    private static int forceLoad(CommandContext<CommandSourceStack> ctx, boolean enable) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        return ClaimService.setForceLoad(player, player.level().dimension(), List.of(player.chunkPosition()), enable);
     }
 
     private static int unclaimHere(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

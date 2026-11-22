@@ -80,7 +80,7 @@ public final class ClaimScreen extends Screen {
 
     // Drag selection: the chunk where the drag started, the button, and the chunk under the mouse now.
     private boolean selecting;
-    private boolean selectingClaim;
+    private ClaimActionPayload.Action selAction = ClaimActionPayload.Action.CLAIM;
     private int selStartX, selStartZ, selEndX, selEndZ;
 
     private boolean initialized;
@@ -378,7 +378,34 @@ public final class ClaimScreen extends Screen {
             if (!sameTeam(entry, cx, cz + 1)) g.fill(x0, y1 - thickness, x1, y1, border);
             if (!sameTeam(entry, cx - 1, cz)) g.fill(x0, y0, x0 + thickness, y1, border);
             if (!sameTeam(entry, cx + 1, cz)) g.fill(x1 - thickness, y0, x1, y1, border);
+            if (entry.forced()) {
+                drawForcedMarker(g, x0, y0, x1, y1);
+            }
         }
+    }
+
+    /** Force-loaded chunks get an inner frame and a dot in the middle, readable at any zoom. */
+    private static void drawForcedMarker(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1) {
+        int size = x1 - x0;
+        int color = 0xE6FFFFFF;
+        if (size >= 10) {
+            int inset = Math.max(2, size / 6);
+            g.outline(x0 + inset, y0 + inset, size - 2 * inset, (y1 - y0) - 2 * inset, 0x90FFFFFF);
+        }
+        int dot = Math.max(2, Math.min(6, size / 4));
+        int cx = (x0 + x1) / 2;
+        int cy = (y0 + y1) / 2;
+        g.fill(cx - dot / 2 - 1, cy - dot / 2 - 1, cx - dot / 2 + dot + 1, cy - dot / 2 + dot + 1, 0xFF000000);
+        g.fill(cx - dot / 2, cy - dot / 2, cx - dot / 2 + dot, cy - dot / 2 + dot, color);
+    }
+
+    private static int selectionColor(ClaimActionPayload.Action action) {
+        return switch (action) {
+            case CLAIM -> 0x5BE37D;
+            case UNCLAIM -> 0xFF5050;
+            case FORCE_LOAD -> 0x4FC3F7;
+            case STOP_FORCE_LOAD -> 0xFFB74D;
+        };
     }
 
     private static boolean sameTeam(ClaimSyncPayload.Entry entry, int cx, int cz) {
@@ -394,12 +421,13 @@ public final class ClaimScreen extends Screen {
         int y0 = toScreenY(Math.min(selStartZ, selEndZ) * 16.0);
         int x1 = toScreenX((Math.max(selStartX, selEndX) + 1) * 16.0);
         int y1 = toScreenY((Math.max(selStartZ, selEndZ) + 1) * 16.0);
-        int rgb = selectingClaim ? 0x5BE37D : 0xFF5050;
+        int rgb = selectionColor(selAction);
         g.fill(x0, y0, x1, y1, 0x40000000 | rgb);
         g.outline(x0, y0, x1 - x0, y1 - y0, 0xFF000000 | rgb);
 
         int count = (Math.abs(selEndX - selStartX) + 1) * (Math.abs(selEndZ - selStartZ) + 1);
-        String label = (selectingClaim ? "+" : "−") + count;
+        boolean adding = selAction == ClaimActionPayload.Action.CLAIM || selAction == ClaimActionPayload.Action.FORCE_LOAD;
+        String label = (adding ? "+" : "−") + count;
         int w = font.width(label) + 6;
         g.fill(mouseX + 10, mouseY - 4, mouseX + 10 + w, mouseY + 8, 0xC0000000);
         g.text(font, label, mouseX + 13, mouseY - 2, 0xFF000000 | rgb, false);
@@ -429,7 +457,11 @@ public final class ClaimScreen extends Screen {
         } else {
             status = Component.translatable("landclaims.screen.team",
                     Component.literal(ClientClaims.ownTeam()).withColor(OWN),
-                    ClientClaims.ownClaimCount(), ClientClaims.claimLimit()).withStyle(ChatFormatting.GRAY);
+                    ClientClaims.ownClaimCount(), ClientClaims.claimLimit())
+                    .append(" · ")
+                    .append(Component.translatable("landclaims.screen.force_status",
+                            ClientClaims.ownForcedCount(), ClientClaims.forceLimit()))
+                    .withStyle(ChatFormatting.GRAY);
         }
         g.centeredText(font, status, width / 2, 17, TEXT_DIM);
 
@@ -468,8 +500,12 @@ public final class ClaimScreen extends Screen {
         List<FormattedCharSequence> lines = new ArrayList<>();
         lines.add(Component.translatable("landclaims.screen.owner", entry.team())
                 .withStyle(entry.own() ? ChatFormatting.GREEN : ChatFormatting.YELLOW).getVisualOrderText());
+        if (entry.forced()) {
+            lines.add(Component.translatable("landclaims.screen.forced").withColor(0xFF4FC3F7).getVisualOrderText());
+        }
         if (entry.own()) {
             lines.add(Component.translatable("landclaims.screen.own_hint").withStyle(ChatFormatting.GRAY).getVisualOrderText());
+            lines.add(Component.translatable("landclaims.screen.force_hint").withStyle(ChatFormatting.GRAY).getVisualOrderText());
         }
         g.setTooltipForNextFrame(lines, mouseX, mouseY);
     }
@@ -493,7 +529,12 @@ public final class ClaimScreen extends Screen {
         if ((button == InputConstants.MOUSE_BUTTON_LEFT || button == InputConstants.MOUSE_BUTTON_RIGHT)
                 && ClientClaims.available()) {
             selecting = true;
-            selectingClaim = button == InputConstants.MOUSE_BUTTON_LEFT;
+            boolean left = button == InputConstants.MOUSE_BUTTON_LEFT;
+            if (event.hasShiftDown()) {
+                selAction = left ? ClaimActionPayload.Action.FORCE_LOAD : ClaimActionPayload.Action.STOP_FORCE_LOAD;
+            } else {
+                selAction = left ? ClaimActionPayload.Action.CLAIM : ClaimActionPayload.Action.UNCLAIM;
+            }
             selStartX = selEndX = chunkAtX(event.x());
             selStartZ = selEndZ = chunkAtY(event.y());
             return true;
@@ -546,16 +587,23 @@ public final class ClaimScreen extends Screen {
             for (int cz = Math.min(selStartZ, selEndZ); cz <= Math.max(selStartZ, selEndZ); cz++) {
                 ClaimSyncPayload.Entry entry = ClientClaims.at(cx, cz);
                 boolean own = entry != null && entry.own();
+                boolean forced = own && entry.forced();
+                boolean useful = switch (selAction) {
+                    case CLAIM -> !own;
+                    case UNCLAIM -> own;
+                    case FORCE_LOAD -> own && !forced;
+                    case STOP_FORCE_LOAD -> forced;
+                };
                 // Skip chunks where nothing would change, so the server's reply only counts real attempts.
                 // A single click is always sent, so the player gets a message explaining what happened.
-                if (single || (selectingClaim ? !own : own)) {
+                if (single || useful) {
                     chunks.add(new ChunkPos(cx, cz));
                 }
             }
         }
         for (int i = 0; i < chunks.size(); i += ClaimService.MAX_CHUNKS_PER_REQUEST) {
             List<ChunkPos> batch = chunks.subList(i, Math.min(chunks.size(), i + ClaimService.MAX_CHUNKS_PER_REQUEST));
-            ClientPacketDistributor.sendToServer(new ClaimActionPayload(selectingClaim, minecraft.level.dimension(),
+            ClientPacketDistributor.sendToServer(new ClaimActionPayload(selAction, minecraft.level.dimension(),
                     List.copyOf(batch)));
         }
     }

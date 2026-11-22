@@ -9,7 +9,7 @@
   "landclaims.screen.unavailable": "На этом сервере нет Land Claims",
   "landclaims.screen.no_team": "У вас пока нет команды: первый приват создаст её",
   "landclaims.screen.team": "Команда %s: приватов %s/%s",
-  "landclaims.screen.help": "ЛКМ занять, ПКМ снять (протяните для области) · Колесо масштаб · WASD или средняя кнопка сдвиг · Пробел ко мне",
+  "landclaims.screen.help": "ЛКМ занять, ПКМ снять · Shift+ЛКМ/ПКМ прогрузка вкл/выкл · протяните для области · Колесо масштаб · WASD или средняя кнопка сдвиг · Пробел ко мне",
   "landclaims.screen.chunk": "Чанк [%s, %s]",
   "landclaims.screen.free": "Свободен",
   "landclaims.screen.owner": "Команда %s",
@@ -24,7 +24,6 @@
   "landclaims.configuration.maxForceLoadedPerTeam": "Максимум прогруженных чанков на команду",
   "landclaims.configuration.protectFromExplosions": "Защищать приваты от взрывов",
   "landclaims.configuration.forceLoadOnlyWhileOnline": "Прогружать, только пока кто-то из команды в сети",
-
   "landclaims.msg.no_team": "Вы не состоите в команде",
   "landclaims.msg.claimed": "Чанк [%s, %s] занят командой %s (%s/%s)",
   "landclaims.msg.already_yours": "Этот чанк уже принадлежит вашей команде",
@@ -43,7 +42,6 @@
   "landclaims.msg.bypass_on": "Обход приватов включён: можно строить где угодно",
   "landclaims.msg.bypass_off": "Обход приватов выключен",
   "landclaims.msg.admin_unclaimed": "Снят приват команды %s",
-
   "landclaims.msg.team.created": "Команда %s создана",
   "landclaims.msg.team.auto_created": "Создана ваша команда %s. Чтобы переименовать, распустите её и создайте через /team create",
   "landclaims.msg.team.name_invalid": "Название команды: 2-16 символов, латинские буквы, цифры, _ или -",
@@ -66,5 +64,16 @@
   "landclaims.msg.team.disbanded": "Команда %s распущена, снято приватов: %s",
   "landclaims.msg.team.info": "Команда %s. Владелец: %s. Участники: %s. Приваты: %s/%s",
   "landclaims.msg.team.list_header": "Команд: %s",
-  "landclaims.msg.team.list_entry": "%s: участников %s, приватов %s"
+  "landclaims.msg.team.list_entry": "%s: участников %s, приватов %s",
+  "landclaims.msg.forced": "Чанк [%s, %s] теперь прогружается (%s/%s)",
+  "landclaims.msg.unforced": "Чанк [%s, %s] больше не прогружается",
+  "landclaims.msg.force_needs_claim": "Прогружать можно только чанки в привате вашей команды",
+  "landclaims.msg.already_forced": "Этот чанк уже прогружается",
+  "landclaims.msg.not_forced": "Этот чанк не прогружается",
+  "landclaims.msg.forced_area": "Прогрузка включена: %s, пропущено: %s",
+  "landclaims.msg.unforced_area": "Прогрузка выключена: %s, пропущено: %s",
+  "landclaims.msg.force_limit": "Команда достигла лимита прогрузки (%s)",
+  "landclaims.screen.forced": "Прогружается",
+  "landclaims.screen.force_hint": "Shift+ЛКМ: прогружать, Shift+ПКМ: перестать",
+  "landclaims.screen.force_status": "прогрузка %s/%s"
 }
