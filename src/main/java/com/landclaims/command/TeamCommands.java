@@ -17,13 +17,13 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
 
-/** /team create|invite|join|leave|kick|disband|info|list */
+/** /clan create|invite|join|leave|kick|disband|info|list */
 public final class TeamCommands {
     private TeamCommands() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("team")
+        dispatcher.register(Commands.literal("clan")
                 .then(Commands.literal("create")
                         .then(Commands.argument("name", StringArgumentType.word()).executes(TeamCommands::create)))
                 .then(Commands.literal("invite")

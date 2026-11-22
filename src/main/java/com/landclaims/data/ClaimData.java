@@ -134,7 +134,7 @@ public final class ClaimData extends SavedData {
         return forced.computeIfAbsent(dimension, d -> new LongOpenHashSet());
     }
 
-    // ---- Player names (for offline members in /team info) ----
+    // ---- Player names (for offline members in /clan info) ----
 
     public void rememberName(UUID player, String name) {
         if (!name.equals(names.put(player, name))) {
