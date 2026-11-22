@@ -47,11 +47,10 @@ public final class TeamScreen extends Screen {
     private static final long STATUS_MS = 6000;
     private static final long CONFIRM_MS = 4000;
 
-    /** Team colors the owner can pick; -1 means "automatic". */
-    private static final int[] PALETTE = {
-            0x3CC864, 0x2E9E5B, 0x4FC3F7, 0x3F7FE0, 0x8C6CF0, 0xD36CE6,
-            0xF06292, 0xE05050, 0xFF8A3D, 0xFFC94D, 0xC0C6CE, 0x6D4C41,
-    };
+    /** Quick picks; after them come "automatic" and "custom…", which opens the full picker. */
+    private static final int[] PALETTE = ColorPickerScreen.PRESETS;
+    private static final int AUTO_SWATCH = PALETTE.length;
+    private static final int CUSTOM_SWATCH = PALETTE.length + 1;
 
     private final @Nullable Screen parent;
     private final Runnable onTeamChanged = this::rebuildWidgets;
@@ -399,22 +398,53 @@ public final class TeamScreen extends Screen {
         return leftX + 56 + index * 18;
     }
 
+    private static boolean isPreset(int rgb) {
+        for (int preset : PALETTE) {
+            if (preset == rgb) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void drawPalette(GuiGraphicsExtractor g, TeamSyncPayload state, int mouseX, int mouseY) {
         g.text(font, Component.translatable("landclaims.team.color"), leftX, paletteY + 4, TEXT_DIM, false);
-        for (int i = 0; i <= PALETTE.length; i++) {
+        boolean customChosen = state.color() != -1 && !isPreset(state.color());
+        for (int i = 0; i <= CUSTOM_SWATCH; i++) {
             int x = swatchX(i);
-            boolean auto = i == PALETTE.length;
-            int rgb = auto ? 0x2A2F36 : PALETTE[i];
-            boolean selected = auto ? state.color() == -1 : state.color() == rgb;
             boolean hover = mouseX >= x && mouseX < x + 16 && mouseY >= paletteY && mouseY < paletteY + 16;
+            boolean selected;
+            String tooltip;
+            if (i == AUTO_SWATCH) {
+                selected = state.color() == -1;
+                tooltip = "landclaims.team.color_auto";
+            } else if (i == CUSTOM_SWATCH) {
+                selected = customChosen;
+                tooltip = "landclaims.team.color_custom";
+            } else {
+                selected = state.color() == PALETTE[i];
+                tooltip = "landclaims.team.color_pick";
+            }
             g.fill(x, paletteY, x + 16, paletteY + 16, selected ? 0xFFFFFFFF : hover ? 0xFF9AA0A8 : 0xFF000000);
-            g.fill(x + 2, paletteY + 2, x + 14, paletteY + 14, 0xFF000000 | rgb);
-            if (auto) {
+            if (i == AUTO_SWATCH) {
+                g.fill(x + 2, paletteY + 2, x + 14, paletteY + 14, 0xFF2A2F36);
                 g.centeredText(font, "A", x + 8, paletteY + 4, TEXT_DIM);
+            } else if (i == CUSTOM_SWATCH) {
+                if (customChosen) {
+                    g.fill(x + 2, paletteY + 2, x + 14, paletteY + 14, 0xFF000000 | state.color());
+                } else {
+                    // A small rainbow so it reads as "any color".
+                    int[] stripes = {0xE05050, 0xFFC94D, 0x3CC864, 0x4FC3F7, 0x8C6CF0, 0xD36CE6};
+                    for (int s = 0; s < stripes.length; s++) {
+                        g.fill(x + 2 + s * 2, paletteY + 2, x + 4 + s * 2, paletteY + 14, 0xFF000000 | stripes[s]);
+                    }
+                }
+                g.centeredText(font, "…", x + 8, paletteY + 4, 0xFFFFFFFF);
+            } else {
+                g.fill(x + 2, paletteY + 2, x + 14, paletteY + 14, 0xFF000000 | PALETTE[i]);
             }
             if (hover) {
-                g.setTooltipForNextFrame(Component.translatable(auto ? "landclaims.team.color_auto" : "landclaims.team.color_pick"),
-                        mouseX, mouseY);
+                g.setTooltipForNextFrame(Component.translatable(tooltip), mouseX, mouseY);
             }
         }
     }
@@ -426,10 +456,16 @@ public final class TeamScreen extends Screen {
         TeamSyncPayload state = ClientTeam.state();
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && state != null && state.inTeam() && isOwner(state)
                 && event.y() >= paletteY && event.y() < paletteY + 16) {
-            for (int i = 0; i <= PALETTE.length; i++) {
+            for (int i = 0; i <= CUSTOM_SWATCH; i++) {
                 int x = swatchX(i);
                 if (event.x() >= x && event.x() < x + 16) {
-                    send(TeamActionPayload.withValue(Action.COLOR, i == PALETTE.length ? -1 : PALETTE[i]));
+                    if (i == CUSTOM_SWATCH) {
+                        int current = state.color() == -1 ? 0x3CC864 : state.color();
+                        minecraft.gui.setScreen(new ColorPickerScreen(this, current,
+                                rgb -> send(TeamActionPayload.withValue(Action.COLOR, rgb))));
+                    } else {
+                        send(TeamActionPayload.withValue(Action.COLOR, i == AUTO_SWATCH ? -1 : PALETTE[i]));
+                    }
                     return true;
                 }
             }

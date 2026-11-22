@@ -104,5 +104,10 @@
   "landclaims.team.color_auto": "Automatic color",
   "landclaims.team.leave": "Leave team",
   "landclaims.team.disband": "Disband team",
-  "landclaims.team.confirm": "Sure? Click again"
+  "landclaims.team.confirm": "Sure? Click again",
+  "landclaims.team.color_custom": "Any color…",
+  "landclaims.picker.title": "Team color",
+  "landclaims.picker.preview": "Was / new",
+  "landclaims.picker.apply": "Apply",
+  "landclaims.picker.cancel": "Cancel"
 }

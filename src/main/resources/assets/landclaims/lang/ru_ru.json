@@ -104,5 +104,10 @@
   "landclaims.team.color_auto": "Цвет автоматически",
   "landclaims.team.leave": "Покинуть команду",
   "landclaims.team.disband": "Распустить команду",
-  "landclaims.team.confirm": "Точно? Нажмите ещё раз"
+  "landclaims.team.confirm": "Точно? Нажмите ещё раз",
+  "landclaims.team.color_custom": "Свой цвет…",
+  "landclaims.picker.title": "Цвет команды",
+  "landclaims.picker.preview": "Было / станет",
+  "landclaims.picker.apply": "Применить",
+  "landclaims.picker.cancel": "Отмена"
 }
